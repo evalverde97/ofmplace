@@ -30,3 +30,7 @@ Configurar como variables de entorno privadas de Netlify (disponibles en runtime
 Referencia: https://docs.netlify.com/build/edge-functions/environment-variables/
 
 Antes de abrir el nuevo sitio: validar login correcto/incorrecto, aislamiento de admin, aprobación de adulto, rechazo de menor, disponibilidad y foto real desde Drive. El despliegue de Netlify permanece pendiente hasta validar la conexión real con Google.
+
+## Edición de nombre y fotos
+
+Actualizar google/Perfiles.gs en Apps Script, ejecutar prepararPerfiles y actualizar la aplicación web con Nueva versión. Se conserva el token y la misma URL /exec. Se agregan Nombre publicado y Fotos publicadas; las respuestas originales se conservan. Desde Revisar se puede cambiar el nombre, ordenar fotos con flechas y quitar imágenes del perfil. La primera foto es la portada y las restantes se muestran en la galería del detalle. Los cambios se aplican al guardar; Cancelar descarta el borrador. No se eliminan archivos de Drive. El panel detecta el conector antiguo y pide actualizarlo antes de habilitar estas opciones.
