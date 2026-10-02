@@ -57,6 +57,7 @@ export default {async fetch(request,env){try{
   return json({error:'not_found'},404);
  }
  if(!['GET','HEAD'].includes(request.method))return json({error:'method_not_allowed'},405);
+ if(route==='/api/session'){const token=(request.headers.get('Cookie')||'').split(';').map(x=>x.trim()).filter(x=>x.startsWith('dollars_session=')||x.startsWith('dollars_admin=')).join(';');return json({session:await sign(token,env.SESSION_SECRET)});}
  if(route==='/api/profiles'){if(!env.CATALOG_ENDPOINT||!env.CATALOG_TOKEN)return json({profiles:[],connected:false});const data=await source(env,'profiles');if(data.error)return json(data,502);return json({profiles:data.profiles.map(p=>card(p)),connected:true});}
  if(route==='/api/profile'){const data=await source(env,'profile',{id:url.searchParams.get('id')});if(data.error)return json(data,data.error==='not_found'?404:502);return json({profile:detail(data.profile)});}
  if(route==='/api/profile-photo')return await photo(env,'photo',url.searchParams.get('id'),Number(url.searchParams.get('index')||0));
