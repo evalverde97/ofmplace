@@ -1,0 +1,1 @@
+{"name":"dollars-marketplace","private":true,"type":"module","scripts":{"build":"node build.mjs","test":"node verify.mjs","dev":"node preview.mjs"}}
