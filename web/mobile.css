@@ -38,3 +38,24 @@ body{background:#f5f5f5}header{background:white;max-width:none;padding:0 max(5%,
 .listing-price{margin-left:auto;text-align:right;font-size:12px;font-weight:600;overflow-wrap:anywhere;min-width:0}
 .footer-contact{padding:10px 16px;border:1px solid #ddd;border-radius:12px;text-decoration:none;background:white}
 @media(max-width:760px){.card-heading{padding:12px 12px 8px}.profiles-mode .product-bottom{flex-wrap:wrap}.listing-price{font-size:11px}.product-bottom .availability{font-size:11px;padding:5px 7px}}
+.profiles-mode .intro h1{text-align:center;max-width:none}
+.visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.profiles-mode .unified-search{display:flex;align-items:center;gap:0;padding:4px;background:#fff;border:1px solid #dedede;border-radius:15px;margin-bottom:18px}
+.unified-search .search-field{flex:1;min-width:0;max-width:none}
+.profiles-mode .unified-search input,.profiles-mode .unified-search select{border:0;border-radius:0;background:transparent;min-height:46px;padding:10px 14px;font-size:14px;width:100%}
+.profiles-mode .unified-search .sort-field{min-width:0;flex:0 0 170px;border-left:1px solid #e6e6e6;max-width:none}
+.unified-search .country-field{flex:0 0 170px;min-width:0;border-left:1px solid #e6e6e6}
+.nav-about{border:0;background:none;padding:0;font-size:14px;color:inherit;min-height:44px}
+.nav-about:hover{text-decoration:underline}
+.about-content{padding:48px 32px 32px}
+.about-content h2{font-size:30px;font-weight:500;letter-spacing:-.04em;margin:0 0 20px}
+.about-content>p:not(.eyebrow){font-size:16px;line-height:1.7;color:#626262;max-width:580px}
+#about{width:min(650px,calc(100% - 32px));border-radius:22px}
+@media(max-width:760px){
+ .profiles-mode .unified-search{display:flex;flex-wrap:wrap;padding:4px;margin-bottom:14px}
+ .unified-search .search-field{flex-basis:100%;border-bottom:1px solid #eee}
+ .profiles-mode .unified-search .sort-field,.unified-search .country-field{flex:1 1 0;min-width:0}
+ .profiles-mode .unified-search .sort-field{border-left:0}
+ .profiles-mode .unified-search input,.profiles-mode .unified-search select{font-size:16px;min-height:44px;padding:10px}
+ .nav-about{font-size:13px}#about{margin:auto;width:calc(100% - 24px);border-radius:22px}.about-content{padding:48px 24px 28px}
+}
