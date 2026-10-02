@@ -35,15 +35,23 @@ export default {async fetch(request,env){try{
  if(route==='/')return redirect('/catalogo');
  if(route.startsWith('/admin/api/')){
   if(!env.CATALOG_ENDPOINT||!env.CATALOG_TOKEN)return route==='/admin/api/profiles'&&request.method==='GET'?json({profiles:[],connected:false}):json({error:'not_connected'},503);
-  if(route==='/admin/api/profiles'&&request.method==='GET'){const data=await source(env,'adminList');if(data.error)return json(data,502);return json({connected:true,profiles:data.profiles.map(p=>({...detail(p,true),approved:p.approved===true,eligible:p.eligible===true,revision:String(p.revision),editingEnabled:data.editingVersion===2,photos:Array.isArray(p.photos)?p.photos.map((key,index)=>({key:String(key),image:p.eligible?'/admin/api/photo?id='+encodeURIComponent(p.id)+'&index='+index:''})):[],originalRevenue:String(p.originalRevenue||'')}))});}
+  if(route==='/admin/api/profiles'&&request.method==='GET'){const data=await source(env,'adminList');if(data.error)return json(data,502);return json({connected:true,profiles:data.profiles.map(p=>({...detail(p,true),approved:p.approved===true,eligible:p.eligible===true,revision:String(p.revision),editingEnabled:data.editingVersion===2,telegramEnabled:data.telegramVersion===1,listingPrice:String(p.listingPrice||''),photos:Array.isArray(p.photos)?p.photos.map((key,index)=>({key:String(key),image:p.eligible?'/admin/api/photo?id='+encodeURIComponent(p.id)+'&index='+index:''})):[],originalRevenue:String(p.originalRevenue||'')}))});}
   if(route==='/admin/api/profile'&&request.method==='POST'){
    const raw=await request.text();if(raw.length>16000)return json({error:'request_too_large'},413);let body;try{body=JSON.parse(raw);}catch{return json({error:'invalid_request'},400);}
    if(typeof body.id!=='string'||typeof body.revision!=='string'||(body.approved!==undefined&&typeof body.approved!=='boolean')||(body.available!==undefined&&typeof body.available!=='boolean'))return json({error:'invalid_request'},400);
+   if(body.listingPrice!==undefined&&(typeof body.listingPrice!=='string'||!/^\d{1,9}(\.\d{1,2})?$/.test(body.listingPrice)))return json({error:'invalid_price'},400);
    if(body.details&&(!Object.keys(body.details).every(k=>fields.includes(k)&&typeof body.details[k]==='string'&&body.details[k].length<=1000)))return json({error:'invalid_fields'},400);
    if(body.name!==undefined&&(typeof body.name!=='string'||!body.name.trim()||body.name.length>120))return json({error:'invalid_name'},400);
    if(body.photos!==undefined&&(!Array.isArray(body.photos)||body.photos.length>30||new Set(body.photos).size!==body.photos.length||!body.photos.every(x=>typeof x==='string'&&/^[a-zA-Z0-9_-]{10,}$/.test(x))))return json({error:'invalid_photos'},400);
    if(body.name!==undefined||body.photos!==undefined){const connector=await source(env,'adminList');if(connector.editingVersion!==2)return json({error:'setup_required'},409);}
-   const data=await source(env,'adminUpdate',{id:body.id,revision:body.revision,approved:body.approved,available:body.available,details:body.details,name:body.name,photos:body.photos});return json(data,data.error?(data.error==='conflict'?409:400):200);
+   const data=await source(env,'adminUpdate',{id:body.id,revision:body.revision,approved:body.approved,available:body.available,details:body.details,name:body.name,photos:body.photos,listingPrice:body.listingPrice});return json(data,data.error?(data.error==='conflict'?409:400):200);
+  }
+  if(['/admin/api/telegram-preview','/admin/api/telegram-publish'].includes(route)&&request.method==='POST'){
+   const raw=await request.text();if(raw.length>16000)return json({error:'request_too_large'},413);let body;try{body=JSON.parse(raw);}catch{return json({error:'invalid_request'},400);}
+   if(typeof body.id!=='string'||typeof body.revision!=='string')return json({error:'invalid_request'},400);
+   const action=route.endsWith('preview')?'telegramPreview':'telegramPublish';
+   if(action==='telegramPublish'&&(typeof body.draft!=='string'||typeof body.text!=='string'||!body.text.trim()||body.text.length>4096))return json({error:'invalid_request'},400);
+   const data=await source(env,action,{id:body.id,revision:body.revision,draft:body.draft,text:body.text});return json(data,data.error?400:200);
   }
   if(route==='/admin/api/photo'&&request.method==='GET')return await photo(env,'adminPhoto',url.searchParams.get('id'),Number(url.searchParams.get('index')||0));
   return json({error:'not_found'},404);
