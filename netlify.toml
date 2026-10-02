@@ -4,3 +4,5 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # The public login name also appears in /admin paths; passwords and tokens remain scanned.
+  SECRETS_SCAN_OMIT_KEYS = "ADMIN_USERNAME"
