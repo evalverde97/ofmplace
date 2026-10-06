@@ -16,7 +16,24 @@ function redirect(to,cookie){return new Response(null,{status:303,headers:{...he
 function bytes(path){return Uint8Array.from(atob(FILES[path]),c=>c.charCodeAt(0));}
 function login(admin=false,error='',status=200){const html=new TextDecoder().decode(bytes('/access.html')).replaceAll('__TITLE__',admin?'Administración':'Bienvenido a DOLL✦ARS').replaceAll('__INTRO__',admin?'Ingresá con tu usuario y contraseña.':'Ingresá tu contraseña para explorar el catálogo.').replaceAll('__ACTION__',admin?'/admin/acceso':'/acceso').replaceAll('__USERNAME__',admin?'<label for="username">Usuario</label><input id="username" name="username" autocomplete="username" required maxlength="80">':'').replaceAll('__ERROR__',error);return new Response(html,{status,headers:{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'self'; form-action 'self'; base-uri 'none'"}});}
 function json(data,status=200){return Response.json(data,{status,headers});}
-async function source(env,action,payload={}){if(!env.CATALOG_ENDPOINT||!env.CATALOG_TOKEN)throw Error('not_connected');const endpoint=new URL(env.CATALOG_ENDPOINT);if(endpoint.protocol!=='https:'||endpoint.hostname!=='script.google.com'||!endpoint.pathname.endsWith('/exec'))throw Error('invalid_endpoint');const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,action,token:env.CATALOG_TOKEN}),signal:AbortSignal.timeout(25000)});if(!response.ok)throw Error('source_unavailable');return response.json();}
+export async function source(env,action,payload={}){
+ if(!env.CATALOG_ENDPOINT||!env.CATALOG_TOKEN)throw Error('not_connected');
+ const endpoint=new URL(env.CATALOG_ENDPOINT);if(endpoint.protocol!=='https:'||endpoint.hostname!=='script.google.com'||!endpoint.pathname.endsWith('/exec'))throw Error('invalid_endpoint');
+ const readOnly=['profiles','profile','adminList','photo','adminPhoto'].includes(action),attempts=readOnly?3:1;
+ for(let attempt=0;attempt<attempts;attempt++){
+  let reason='network',retryable=true;
+  try{
+   const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,action,token:env.CATALOG_TOKEN}),signal:AbortSignal.timeout(readOnly?7500:25000)});
+   if(!response.ok){reason='http_'+response.status;retryable=[408,429,500,502,503,504].includes(response.status);throw Error('upstream');}
+   reason='invalid_json';const data=await response.json();if(!data||typeof data!=='object'||Array.isArray(data))throw Error('invalid_response');return data;
+  }catch(error){
+   if(error.name==='TimeoutError'||error.name==='AbortError')reason='timeout';
+   console.warn('catalog_source_failure',{action,attempt:attempt+1,reason});
+   if(!retryable||attempt===attempts-1)throw Error('source_unavailable');
+   await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));
+  }
+ }
+}
 function card(p,admin=false){return {id:String(p.id),name:String(p.name),country:String(p.country||''),english:String(p.english||''),available:p.available===true,listingPrice:String(p.listingPrice||''),image:p.hasPhoto?(admin?'/admin/api/photo?id=':'/api/profile-photo?id=')+encodeURIComponent(p.id):''};}
 function detail(p,admin=false){return {...card(p,admin),images:Array.from({length:Math.min(Math.max(Number(p.photoCount)||0,0),30)},(_,index)=>'/api/profile-photo?id='+encodeURIComponent(p.id)+'&index='+index),details:Object.fromEntries(fields.map(k=>[k,String(p.details?.[k]??'')]))};}
 export default {async fetch(request,env){try{

@@ -83,3 +83,10 @@ body{background:#f5f5f5}header{background:white;max-width:none;padding:0 max(5%,
  .profiles-mode .unified-search input,.profiles-mode .unified-search select{font-size:16px;min-height:44px;padding:10px}
  .nav-about{font-size:13px}#about{margin:auto;width:calc(100% - 24px);border-radius:22px}.about-content{padding:48px 24px 28px}
 }
+.profiles-mode .header-wordmark{width:225px;height:48px;flex-shrink:0}
+.profiles-mode .header-wordmark img{width:480px;height:auto;left:-127px;top:-137px}
+.loading-mark{perspective:400px;animation:brand-horizontal-turn 2.8s ease-in-out infinite;transform-style:preserve-3d}
+@keyframes brand-horizontal-turn{0%,15%{transform:rotateX(0deg)}75%,100%{transform:rotateX(360deg)}}
+@media(max-width:760px){.profiles-mode .header-wordmark{width:145px;height:34px}.profiles-mode .header-wordmark img{width:308px;left:-81px;top:-87px}}
+@media(max-width:350px){.profiles-mode .header-wordmark{width:125px;height:30px}.profiles-mode .header-wordmark img{width:263px;left:-69px;top:-74px}}
+@media(prefers-reduced-motion:reduce){.loading-mark{animation:none}}
