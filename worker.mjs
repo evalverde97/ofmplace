@@ -53,7 +53,7 @@ export default {async fetch(request,env){try{
    if(typeof body.id!=='string'||typeof body.revision!=='string')return json({error:'invalid_request'},400);
    const action=route.endsWith('preview')?'telegramPreview':'telegramPublish';
    if(action==='telegramPublish'&&(typeof body.draft!=='string'||typeof body.text!=='string'||!body.text.trim()||body.text.length>4096))return json({error:'invalid_request'},400);
-   const data=await source(env,action,{id:body.id,revision:body.revision,draft:body.draft,text:body.text,updateExisting:true});return json(data,data.error?400:200);
+   const data=await source(env,action,{id:body.id,revision:body.revision,draft:body.draft,text:body.text,updateExisting:true,republish:body.republish===true});return json(data,data.error?400:200);
   }
   if(route==='/admin/api/photo'&&request.method==='GET')return await photo(env,'adminPhoto',url.searchParams.get('id'),Number(url.searchParams.get('index')||0));
   return json({error:'not_found'},404);
