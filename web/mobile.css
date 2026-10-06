@@ -52,6 +52,9 @@ body{background:#f5f5f5}header{background:white;max-width:none;padding:0 max(5%,
 .profiles-mode .catalog-title{height:0}
 .profiles-mode .unified-search{margin-bottom:10px}
 .result-count{display:flex;justify-content:flex-end;margin:0 0 14px;font-size:13px;color:var(--muted);line-height:1.4;min-height:18px}
+.profiles-mode .product-image{background:#eee}
+.profiles-mode .product-image img{object-fit:contain;object-position:center;transform:none;transition:none}
+.profiles-mode .product:hover .product-image img{transform:none}
 .about-content{padding:48px 32px 32px}
 .about-content h2{font-size:30px;font-weight:500;letter-spacing:-.04em;margin:0 0 20px}
 .about-content>p:not(.eyebrow){font-size:16px;line-height:1.7;color:#626262;max-width:580px}
