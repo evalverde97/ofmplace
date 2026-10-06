@@ -1,4 +1,6 @@
 const encoder=new TextEncoder();
+// Process-local photo reuse only; every request still passes authentication.
+const photoCache=new Map();
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin'};
 const fields=['onlyfansStatus','monthlyRevenue','currentSubscribers','contentLibrary','notes','age','country','english','creatorType','smartphone','countriesBlocked','accountAccess','revenueSplit','dailyWeeklyAvailability','startAvailability','agency','socialMedia','contentType'];
 const b64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
@@ -44,7 +46,7 @@ export default {async fetch(request,env){try{
    if(body.name!==undefined&&(typeof body.name!=='string'||!body.name.trim()||body.name.length>120))return json({error:'invalid_name'},400);
    if(body.photos!==undefined&&(!Array.isArray(body.photos)||body.photos.length>30||new Set(body.photos).size!==body.photos.length||!body.photos.every(x=>typeof x==='string'&&/^[a-zA-Z0-9_-]{10,}$/.test(x))))return json({error:'invalid_photos'},400);
    if(body.name!==undefined||body.photos!==undefined){const connector=await source(env,'adminList');if(connector.editingVersion!==2)return json({error:'setup_required'},409);}
-   const data=await source(env,'adminUpdate',{id:body.id,revision:body.revision,approved:body.approved,available:body.available,details:body.details,name:body.name,photos:body.photos,listingPrice:body.listingPrice,autoPublish:body.autoPublish===true});return json(data,data.error?(data.error==='conflict'?409:400):200);
+   const data=await source(env,'adminUpdate',{id:body.id,revision:body.revision,approved:body.approved,available:body.available,details:body.details,name:body.name,photos:body.photos,listingPrice:body.listingPrice,autoPublish:body.autoPublish===true});photoCache.clear();return json(data,data.error?(data.error==='conflict'?409:400):200);
   }
   if(['/admin/api/telegram-preview','/admin/api/telegram-publish'].includes(route)&&request.method==='POST'){
    const raw=await request.text();if(raw.length>16000)return json({error:'request_too_large'},413);let body;try{body=JSON.parse(raw);}catch{return json({error:'invalid_request'},400);}
@@ -58,7 +60,7 @@ export default {async fetch(request,env){try{
  }
  if(!['GET','HEAD'].includes(request.method))return json({error:'method_not_allowed'},405);
  if(route==='/api/session'){const token=(request.headers.get('Cookie')||'').split(';').map(x=>x.trim()).filter(x=>x.startsWith('dollars_session=')||x.startsWith('dollars_admin=')).join(';');return json({session:await sign(token,env.SESSION_SECRET)});}
- if(route==='/api/profiles'){if(!env.CATALOG_ENDPOINT||!env.CATALOG_TOKEN)return json({profiles:[],connected:false});const data=await source(env,'profiles');if(data.error)return json(data,502);return json({profiles:data.profiles.map(p=>card(p)),connected:true});}
+ if(route==='/api/profiles'){if(!env.CATALOG_ENDPOINT||!env.CATALOG_TOKEN)return json({profiles:[],connected:false});const data=await source(env,'profiles');if(data.error)return json(data,502);const token=(request.headers.get('Cookie')||'').split(';').map(x=>x.trim()).filter(x=>x.startsWith('dollars_session=')||x.startsWith('dollars_admin=')).join(';');return json({profiles:data.profiles.map(p=>card(p)),connected:true,session:await sign(token,env.SESSION_SECRET)});}
  if(route==='/api/profile'){const data=await source(env,'profile',{id:url.searchParams.get('id')});if(data.error)return json(data,data.error==='not_found'?404:502);return json({profile:detail(data.profile)});}
  if(route==='/api/profile-photo')return await photo(env,'photo',url.searchParams.get('id'),Number(url.searchParams.get('index')||0));
  const path=route==='/catalogo'?'/index.html':route==='/admin'?'/admin/index.html':route;
@@ -67,4 +69,4 @@ export default {async fetch(request,env){try{
  return new Response(request.method==='HEAD'?null:bytes(path),{headers:{...headers,'Content-Type':type,...(path.endsWith('.gs')?{'Content-Disposition':'attachment; filename="Perfiles.gs"'}:{})}});
  }catch{return json({error:'source_unavailable'},502);}
 }};
-async function photo(env,action,id,index=0){if(!Number.isInteger(index)||index<0||index>29)return json({error:'invalid_index'},400);const data=await source(env,action,{id,index});if(data.error)return json({error:'photo_unavailable'},404);if(!['image/jpeg','image/png','image/webp'].includes(data.mime)||typeof data.base64!=='string'||data.base64.length>3000000)return json({error:'invalid_photo'},502);return new Response(Uint8Array.from(atob(data.base64),c=>c.charCodeAt(0)),{headers:{...headers,'Content-Type':data.mime}});}
+async function photo(env,action,id,index=0){if(!Number.isInteger(index)||index<0||index>29)return json({error:'invalid_index'},400);const cacheKey=[env.CATALOG_ENDPOINT,env.CATALOG_TOKEN,action,id,index].join('|');let entry=photoCache.get(cacheKey);if(!entry||entry.expires<=Date.now()){for(const [key,value] of photoCache)if(value.expires<=Date.now())photoCache.delete(key);if(photoCache.size>=12)photoCache.delete(photoCache.keys().next().value);entry={expires:Date.now()+60000,promise:source(env,action,{id,index})};photoCache.set(cacheKey,entry);}let data;try{data=await entry.promise;}catch(error){photoCache.delete(cacheKey);throw error;}if(data.error)photoCache.delete(cacheKey);if(data.error)return json({error:'photo_unavailable'},404);if(!['image/jpeg','image/png','image/webp'].includes(data.mime)||typeof data.base64!=='string'||data.base64.length>3000000)return json({error:'invalid_photo'},502);return new Response(Uint8Array.from(atob(data.base64),c=>c.charCodeAt(0)),{headers:{...headers,'Content-Type':data.mime}});}
