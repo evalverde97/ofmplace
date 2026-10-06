@@ -1,5 +1,5 @@
 [build]
-  command = "node build.mjs"
+  command = "node test.mjs"
   publish = "netlify/public"
 
 [build.environment]

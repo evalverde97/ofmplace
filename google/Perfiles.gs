@@ -21,10 +21,12 @@ function registros(){const table=tablaPerfiles();const get=(row,name)=>{const i=
 function tarjeta(p){return {id:p.id,name:p.name,country:p.country,english:p.english,available:p.available,listingPrice:p.listingPrice,hasPhoto:p.photos.length>0};}
 function detalle(p){return {...tarjeta(p),details:p.details,photoCount:p.photos.length};}
 function actualizarPerfil(data){
+ if(!data||typeof data!=='object'||Array.isArray(data))return {error:'invalid_request'};
+ if(data.listingPrice!==undefined&&(typeof data.listingPrice!=='string'||!/^\d{1,9}(\.\d{1,2})?$/.test(data.listingPrice)))return {error:'invalid_price'};
  if(typeof data.id!=='string'||typeof data.revision!=='string'||(data.approved!==undefined&&typeof data.approved!=='boolean')||(data.available!==undefined&&typeof data.available!=='boolean'))return {error:'invalid_request'};
  if(data.name!==undefined&&(typeof data.name!=='string'||!data.name.trim()||data.name.length>120))return {error:'invalid_name'};
  if(data.photos!==undefined&&(!Array.isArray(data.photos)||data.photos.length>30||new Set(data.photos).size!==data.photos.length||!data.photos.every(x=>typeof x==='string'&&/^[a-zA-Z0-9_-]{10,}$/.test(x))))return {error:'invalid_photos'};
- if(data.details&&(!Object.keys(data.details).every(k=>Object.prototype.hasOwnProperty.call(FIELD_COLUMNS,k)&&typeof data.details[k]==='string'&&data.details[k].length<=1000)))return {error:'invalid_fields'};
+ if(data.details!==undefined&&(!data.details||typeof data.details!=='object'||Array.isArray(data.details)||!Object.keys(data.details).every(k=>Object.prototype.hasOwnProperty.call(FIELD_COLUMNS,k)&&typeof data.details[k]==='string'&&data.details[k].length<=1000)))return {error:'invalid_fields'};
  const lock=LockService.getScriptLock();lock.waitLock(30000);
  try{const {sheet,profiles,headers}=registros(),p=profiles.find(x=>x.id===data.id);if(!p)return {error:'not_found'};if(p.revision!==data.revision)return {error:'conflict'};
  if(data.photos&&data.photos.some(id=>!p.photos.includes(id)))return {error:'invalid_photos'};
@@ -38,7 +40,7 @@ function actualizarPerfil(data){
  }finally{lock.releaseLock();}
 }
 function fotoPerfil(p,index=0){if(!Number.isInteger(index)||index<0)return {error:'not_found'};const id=p.photos[index];if(!id)return {error:'photo_requires_drive'};const file=DriveApp.getFileById(id),blob=file.getThumbnail()||file.getBlob(),bytes=blob.getBytes();if(!['image/jpeg','image/png','image/webp'].includes(blob.getContentType())||bytes.length>2000000)return {error:'unsupported_photo'};return {mime:blob.getContentType(),base64:Utilities.base64Encode(bytes)};}
-function doPost(e){const json=value=>ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);try{const data=JSON.parse(e.postData.contents),secret=PropertiesService.getScriptProperties().getProperty('CATALOG_TOKEN');if(!secret||data.token!==secret)return json({error:'unauthorized'});
+function doPost(e){const json=value=>ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);try{const data=JSON.parse(e.postData.contents);if(!data||typeof data!=='object'||Array.isArray(data))return json({error:'invalid_request'});const secret=PropertiesService.getScriptProperties().getProperty('CATALOG_TOKEN');if(!secret||data.token!==secret)return json({error:'unauthorized'});
  if(data.action==='telegramPreview')return json(vistaTelegram(data));
  if(data.action==='telegramPublish')return json(publicarTelegram(data));
  if(data.action==='adminUpdate'){const saved=actualizarPerfil(data);if(saved.error||data.autoPublish!==true)return json(saved);try{const p=registros().profiles.find(p=>p.id===data.id);const preview=vistaTelegram({id:p.id,revision:p.revision});if(preview.error)return json({...saved,telegram:preview});return json({...saved,telegram:publicarTelegram({id:p.id,revision:p.revision,draft:preview.draft,text:preview.text,updateExisting:true})});}catch{return json({...saved,telegram:{error:'source_unavailable'}});}}

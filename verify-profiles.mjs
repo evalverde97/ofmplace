@@ -47,3 +47,8 @@ assert.equal(call({action:'telegramPublish',id:adult.id,revision:adult.revision,
 assert.equal(call({action:'telegramPublish',id:adult.id,revision:adult.revision,draft:recoveryDraft.draft,text:'Recovered profile',republish:true}).ok,true);
 assert.equal(call({action:'telegramPublish',id:'minor',revision:minor.revision,draft:recoveryDraft.draft,text:'Blocked',republish:true}).error,'adult_approved_required');
 console.log('PASS: explicit republication sends a new album, uncertain sends require explicit republication, adult approval remains required.');
+const auditAdult=call({action:'adminList'}).profiles.find(x=>x.id==='adult');
+for(const listingPrice of ['-1','=1+2','abc',42,null,'1.999'])assert.equal(call({action:'adminUpdate',id:auditAdult.id,revision:auditAdult.revision,listingPrice}).error,'invalid_price');
+for(const details of [null,[],false,42,'bad'])assert.equal(call({action:'adminUpdate',id:auditAdult.id,revision:auditAdult.revision,details}).error,'invalid_fields');
+assert.equal(JSON.parse(context.doPost({postData:{contents:'null'}}).text).error,'invalid_request');
+console.log('PASS: connector rejects invalid prices and malformed fields independently of the web server.');

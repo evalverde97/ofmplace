@@ -47,7 +47,7 @@ export default {async fetch(request,env){try{
   if(!validPassword||!validUser)return login(isAdmin,isAdmin?'Usuario o contraseña incorrectos.':'La contraseña no es correcta. Probá nuevamente.',401);
   return redirect(isAdmin?'/admin':'/catalogo',await cookie(env,isAdmin));
  }
- if((route==='/salir'||route==='/admin/salir')&&request.method==='POST')return redirect(isAdmin?'/admin':'/',sessionName(isAdmin)+'=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+ if((route==='/salir'||route==='/admin/salir')&&request.method==='POST'){const response=redirect(isAdmin?'/admin':'/');for(const name of ['dollars_session','dollars_admin'])response.headers.append('Set-Cookie',name+'=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');return response;}
  const adminAuth=isAdmin&&await authorized(request,env,true);
  const allowed=route==='/assets/mark.jpg'||route==='/i18n.js'||(isAdmin?adminAuth:(await authorized(request,env)||await authorized(request,env,true)));
  if(!allowed){if(['/','/catalogo','/index.html','/acceso','/admin','/admin/acceso'].includes(route))return login(isAdmin);return json({error:'unauthorized'},401);}
@@ -57,9 +57,9 @@ export default {async fetch(request,env){try{
   if(route==='/admin/api/profiles'&&request.method==='GET'){const data=await source(env,'adminList');if(data.error)return json(data,502);return json({connected:true,profiles:data.profiles.map(p=>({...detail(p,true),approved:p.approved===true,eligible:p.eligible===true,revision:String(p.revision),editingEnabled:data.editingVersion===2,telegramEnabled:data.telegramVersion>=1,autoTelegramEnabled:data.telegramVersion>=2,listingPrice:String(p.listingPrice||''),photos:Array.isArray(p.photos)?p.photos.map((key,index)=>({key:String(key),image:p.eligible?'/admin/api/photo?id='+encodeURIComponent(p.id)+'&index='+index:''})):[],originalRevenue:String(p.originalRevenue||'')}))});}
   if(route==='/admin/api/profile'&&request.method==='POST'){
    const raw=await request.text();if(raw.length>16000)return json({error:'request_too_large'},413);let body;try{body=JSON.parse(raw);}catch{return json({error:'invalid_request'},400);}
-   if(typeof body.id!=='string'||typeof body.revision!=='string'||(body.approved!==undefined&&typeof body.approved!=='boolean')||(body.available!==undefined&&typeof body.available!=='boolean'))return json({error:'invalid_request'},400);
+   if(!body||typeof body!=='object'||Array.isArray(body)||typeof body.id!=='string'||typeof body.revision!=='string'||(body.approved!==undefined&&typeof body.approved!=='boolean')||(body.available!==undefined&&typeof body.available!=='boolean'))return json({error:'invalid_request'},400);
    if(body.listingPrice!==undefined&&(typeof body.listingPrice!=='string'||!/^\d{1,9}(\.\d{1,2})?$/.test(body.listingPrice)))return json({error:'invalid_price'},400);
-   if(body.details&&(!Object.keys(body.details).every(k=>fields.includes(k)&&typeof body.details[k]==='string'&&body.details[k].length<=1000)))return json({error:'invalid_fields'},400);
+   if(body.details!==undefined&&(!body.details||typeof body.details!=='object'||Array.isArray(body.details)||!Object.keys(body.details).every(k=>fields.includes(k)&&typeof body.details[k]==='string'&&body.details[k].length<=1000)))return json({error:'invalid_fields'},400);
    if(body.name!==undefined&&(typeof body.name!=='string'||!body.name.trim()||body.name.length>120))return json({error:'invalid_name'},400);
    if(body.photos!==undefined&&(!Array.isArray(body.photos)||body.photos.length>30||new Set(body.photos).size!==body.photos.length||!body.photos.every(x=>typeof x==='string'&&/^[a-zA-Z0-9_-]{10,}$/.test(x))))return json({error:'invalid_photos'},400);
    if(body.name!==undefined||body.photos!==undefined){const connector=await source(env,'adminList');if(connector.editingVersion!==2)return json({error:'setup_required'},409);}
@@ -67,7 +67,7 @@ export default {async fetch(request,env){try{
   }
   if(['/admin/api/telegram-preview','/admin/api/telegram-publish'].includes(route)&&request.method==='POST'){
    const raw=await request.text();if(raw.length>16000)return json({error:'request_too_large'},413);let body;try{body=JSON.parse(raw);}catch{return json({error:'invalid_request'},400);}
-   if(typeof body.id!=='string'||typeof body.revision!=='string')return json({error:'invalid_request'},400);
+   if(!body||typeof body!=='object'||Array.isArray(body)||typeof body.id!=='string'||typeof body.revision!=='string')return json({error:'invalid_request'},400);
    const action=route.endsWith('preview')?'telegramPreview':'telegramPublish';
    if(action==='telegramPublish'&&(typeof body.draft!=='string'||typeof body.text!=='string'||!body.text.trim()||body.text.length>4096))return json({error:'invalid_request'},400);
    const data=await source(env,action,{id:body.id,revision:body.revision,draft:body.draft,text:body.text,updateExisting:true,republish:body.republish===true});return json(data,data.error?400:200);
