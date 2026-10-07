@@ -9,3 +9,9 @@ files['/admin/i18n.js']=files['/i18n.js'];
 mkdirSync('dist/server',{recursive:true});
 writeFileSync('dist/server/index.js','const FILES = '+JSON.stringify(files)+';\n'+readFileSync('worker.mjs','utf8'));
 console.log('Worker built with '+Object.keys(files).length+' assets.');
+
+for(const role of ['catalog','admin']){
+ const selected=Object.fromEntries(Object.entries(files).filter(([key])=>role==='catalog'?!key.startsWith('/admin/'):key.startsWith('/admin/')||['/access.html','/assets/mark.jpg','/i18n.js'].includes(key)));
+ mkdirSync('dist/'+role,{recursive:true});
+ writeFileSync('dist/'+role+'/index.js','const FILES = '+JSON.stringify(selected)+';\n'+readFileSync('worker.mjs','utf8'));
+}

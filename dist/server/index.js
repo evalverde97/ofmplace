@@ -38,19 +38,21 @@ export async function source(env,action,payload={}){
 function card(p,admin=false){return {id:String(p.id),name:String(p.name),country:String(p.country||''),english:String(p.english||''),available:p.available===true,listingPrice:String(p.listingPrice||''),image:p.hasPhoto?(admin?'/admin/api/photo?id=':'/api/profile-photo?id=')+encodeURIComponent(p.id):''};}
 function detail(p,admin=false){return {...card(p,admin),images:Array.from({length:Math.min(Math.max(Number(p.photoCount)||0,0),30)},(_,index)=>'/api/profile-photo?id='+encodeURIComponent(p.id)+'&index='+index),details:Object.fromEntries(fields.map(k=>[k,String(p.details?.[k]??'')]))};}
 export default {async fetch(request,env){try{
- const url=new URL(request.url),route=url.pathname,isAdmin=route==='/admin'||route.startsWith('/admin/');
- if(!env.SESSION_SECRET||!env.STORE_PASSWORD)return new Response('Acceso temporalmente no disponible.',{status:503,headers});
+ const url=new URL(request.url),role=env.SITE_ROLE||'combined',route=role==='admin'&&url.pathname==='/'?'/admin':url.pathname,isAdmin=route==='/admin'||route.startsWith('/admin/');
+ if(role==='catalog'&&isAdmin)return new Response('No encontrado',{status:404,headers});
+ if(role==='admin'&&!isAdmin&&!['/assets/mark.jpg','/i18n.js'].includes(route))return new Response('No encontrado',{status:404,headers});
+ if(!env.SESSION_SECRET||(role==='admin'?(!env.ADMIN_USERNAME||!env.ADMIN_PASSWORD):!env.STORE_PASSWORD))return new Response('Acceso temporalmente no disponible.',{status:503,headers});
  if(request.method==='POST'&&request.headers.get('Origin')!==url.origin)return new Response('Solicitud no permitida.',{status:403,headers});
  if((route==='/acceso'||route==='/admin/acceso')&&request.method==='POST'){
   if(isAdmin&&(!env.ADMIN_USERNAME||!env.ADMIN_PASSWORD))return login(true,'El acceso de administración todavía no está configurado.',503);
   const raw=await request.text();if(raw.length>2048)return json({error:'request_too_large'},413);const form=new URLSearchParams(raw);
   const validPassword=await equal(form.get('password')||'',isAdmin?env.ADMIN_PASSWORD:env.STORE_PASSWORD);const validUser=!isAdmin||await equal(form.get('username')||'',env.ADMIN_USERNAME);
   if(!validPassword||!validUser)return login(isAdmin,isAdmin?'Usuario o contraseña incorrectos.':'La contraseña no es correcta. Probá nuevamente.',401);
-  return redirect(isAdmin?'/admin':'/catalogo',await cookie(env,isAdmin));
+  return redirect(isAdmin?(role==='admin'?'/':'/admin'):'/catalogo',await cookie(env,isAdmin));
  }
  if((route==='/salir'||route==='/admin/salir')&&request.method==='POST'){const response=redirect(isAdmin?'/admin':'/');for(const name of ['dollars_session','dollars_admin'])response.headers.append('Set-Cookie',name+'=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');return response;}
  const adminAuth=isAdmin&&await authorized(request,env,true);
- const allowed=route==='/assets/mark.jpg'||route==='/i18n.js'||(isAdmin?adminAuth:(await authorized(request,env)||await authorized(request,env,true)));
+ const allowed=route==='/assets/mark.jpg'||route==='/i18n.js'||(isAdmin?adminAuth:(await authorized(request,env)||(role!=='catalog'&&await authorized(request,env,true))));
  if(!allowed){if(['/','/catalogo','/index.html','/acceso','/admin','/admin/acceso'].includes(route))return login(isAdmin);return json({error:'unauthorized'},401);}
  if(route==='/')return redirect('/catalogo');
  if(route.startsWith('/admin/api/')){
@@ -84,7 +86,8 @@ export default {async fetch(request,env){try{
  const path=route==='/catalogo'?'/index.html':route==='/admin'?'/admin/index.html':route;
  if(!FILES[path])return new Response('No encontrado',{status:404,headers});
  const type={html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',js:'text/javascript; charset=utf-8',svg:'image/svg+xml',jpg:'image/jpeg',png:'image/png',gs:'text/plain; charset=utf-8'}[path.split('.').pop()]||'application/octet-stream';
- return new Response(request.method==='HEAD'?null:bytes(path),{headers:{...headers,'Content-Type':type,...(path.endsWith('.gs')?{'Content-Disposition':'attachment; filename="Perfiles.gs"'}:{})}});
+ const content=role==='admin'&&path==='/admin/index.html'?new TextEncoder().encode(new TextDecoder().decode(bytes(path)).replace('href="/catalogo"','href="https://ofmplace.netlify.app/catalogo"')):bytes(path);
+ return new Response(request.method==='HEAD'?null:content,{headers:{...headers,'Content-Type':type,...(path.endsWith('.gs')?{'Content-Disposition':'attachment; filename="Perfiles.gs"'}:{})}});
  }catch{return json({error:'source_unavailable'},502);}
 }};
 async function photo(env,action,id,index=0){if(!Number.isInteger(index)||index<0||index>29)return json({error:'invalid_index'},400);const cacheKey=[env.CATALOG_ENDPOINT,env.CATALOG_TOKEN,action,id,index].join('|');let entry=photoCache.get(cacheKey);if(!entry||entry.expires<=Date.now()){for(const [key,value] of photoCache)if(value.expires<=Date.now())photoCache.delete(key);if(photoCache.size>=12)photoCache.delete(photoCache.keys().next().value);entry={expires:Date.now()+60000,promise:source(env,action,{id,index})};photoCache.set(cacheKey,entry);}let data;try{data=await entry.promise;}catch(error){photoCache.delete(cacheKey);throw error;}if(data.error)photoCache.delete(cacheKey);if(data.error)return json({error:'photo_unavailable'},404);if(!['image/jpeg','image/png','image/webp'].includes(data.mime)||typeof data.base64!=='string'||data.base64.length>3000000)return json({error:'invalid_photo'},502);return new Response(Uint8Array.from(atob(data.base64),c=>c.charCodeAt(0)),{headers:{...headers,'Content-Type':data.mime}});}

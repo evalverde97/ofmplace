@@ -1,0 +1,15 @@
+[build]
+  base = "."
+  command = "node test.mjs"
+  publish = "admin-site/public"
+  edge_functions = "admin-site/netlify/edge-functions"
+[build.environment]
+  NODE_VERSION = "22"
+  SECRETS_SCAN_OMIT_KEYS = "ADMIN_USERNAME"
+[[edge_functions]]
+  path = "/*"
+  function = "admin"
+[functions]
+  directory = "admin-site/netlify/functions"
+[build.processing]
+  skip_processing = true
