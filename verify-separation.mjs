@@ -21,3 +21,12 @@ assert.equal((await admin.fetch(request('/admin/api/profiles'),adminEnv)).status
 assert.equal((await admin.fetch(request('/catalogo',{headers:{Cookie:cookie}}),adminEnv)).status,404);
 const bundle=readFileSync('dist/catalog/index.js','utf8');const assets=JSON.parse(bundle.slice('const FILES = '.length,bundle.indexOf(';\n')));assert(!Object.keys(assets).some(k=>k.startsWith('/admin/')));
 console.log('PASS: separate admin root and credentials, public admin routes blocked even with admin cookie, no admin assets in catalog bundle, admin API still protected.');
+// Netlify currently resolves the root config for this linked repository. Confirm
+// the local plugin selects only the admin project and leaves the catalog alone.
+const {createRequire}=await import('node:module');const selectSurface=createRequire(import.meta.url)('./netlify/plugins/select-surface/index.cjs');
+const savedSiteId=process.env.SITE_ID;
+try{
+ process.env.SITE_ID='catalog-site';const publicConfig={build:{publish:'netlify/public'}};selectSurface.onPreBuild({netlifyConfig:publicConfig});assert.deepEqual(publicConfig,{build:{publish:'netlify/public'}});
+ process.env.SITE_ID='983c2e62-4e8e-40fe-9740-44259b323c35';const adminConfig={build:{publish:'netlify/public'}};selectSurface.onPreBuild({netlifyConfig:adminConfig});assert.equal(adminConfig.build.edge_functions,'admin-site/netlify/edge-functions');assert.equal(adminConfig.build.publish,'admin-site/public');assert.equal(adminConfig.edge_functions[0].function,'admin');
+}finally{if(savedSiteId===undefined)delete process.env.SITE_ID;else process.env.SITE_ID=savedSiteId;}
+console.log('PASS: deployment identity isolates the admin function and preserves the catalog deployment.');

@@ -1,5 +1,8 @@
 # Panel independiente
 
+Proyecto de administración: https://ofmplace-management.netlify.app/
+Proyecto Netlify: `ofmplace-management`. Base directory vacío (raíz); Package directory `admin-site`. Logs de despliegue privados. El directorio de paquete está configurado, pero Netlify resolvió el archivo raíz en los primeros despliegues. Un plugin local selecciona explícitamente la función y carpeta admin para el ID de este proyecto; otros proyectos conservan el catálogo. Cambiar de proyecto admin exige actualizar ese ID y las pruebas.
+
 El marketplace despliega `dist/catalog/index.js`, sin archivos `/admin/*`. Su función fija SITE_ROLE=catalog y devuelve 404 para todas esas rutas, incluso con una cookie de administrador válida. Una cookie admin no habilita el catálogo. No se publica un enlace hacia el panel.
 
 El segundo proyecto Netlify utiliza el mismo repositorio, paquete `admin-site`, base raíz y configuración `admin-site/netlify.toml`. Ejecuta todas las pruebas y despliega únicamente `admin-site/netlify/edge-functions`, que importa `dist/admin/index.js`. La raíz `/` muestra el login o panel. Las operaciones y recursos internos conservan `/admin/*` exclusivamente en ese dominio independiente.
